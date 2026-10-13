@@ -1,0 +1,7 @@
+{
+  "name": "puffer-simulator-tests",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node test.mjs ../index.html", "test:shots": "node test.mjs ../index.html --shots" },
+  "dependencies": { "puppeteer-core": "24.9.0" }
+}
