@@ -1,0 +1,416 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Puffer-Simulator</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: Kopf → Tour-Leiste → Steuerleiste → drei Becherglas-Karten (mit eigenen Buttons) → Diagramm + Fazit. Laborprotokoll-Ton. */
+:root{
+  --bg:#f6f7f4; --surface:#ffffff; --fg:#1d2420; --muted:#66706a; --line:#d9ded9; --soft:#eef1ee;
+  --liquid:#e3f1fb; --glass:#4b5a66; --flash:#0ea5e9;
+  --ha:#e59a1a; --ac:#117c6f; --h:#d1332f; --oh:#2f5fd3; --cl:#9aa6b2;
+  --a:#117c6f; --b:#b4590b; --c:#6f2fb5; --note:#fff8e6; --note-line:#e9b84a; --hot:#fde9b5;
+  --font:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#151a18; --surface:#1e2522; --fg:#e8ebe8; --muted:#9aa49e; --line:#334039; --soft:#273029;
+  --liquid:#1d3140; --glass:#9fb0bd; --flash:#38bdf8;
+  --ha:#f0ad3a; --ac:#2fb3a1; --h:#ef5a55; --oh:#6f93f0; --cl:#7f8b96;
+  --a:#2fb3a1; --b:#f08a2f; --c:#b07ff0; --note:#2a2516; --note-line:#b48b2c; --hot:#4a3a12; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#151a18; --surface:#1e2522; --fg:#e8ebe8; --muted:#9aa49e; --line:#334039; --soft:#273029;
+  --liquid:#1d3140; --glass:#9fb0bd; --flash:#38bdf8;
+  --ha:#f0ad3a; --ac:#2fb3a1; --h:#ef5a55; --oh:#6f93f0; --cl:#7f8b96;
+  --a:#2fb3a1; --b:#f08a2f; --c:#b07ff0; --note:#2a2516; --note-line:#b48b2c; --hot:#4a3a12; color-scheme:dark }
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--font);font-size:15px;line-height:1.45;margin:0}
+.wrap{max-width:1280px;margin:0 auto;padding-block:20px 40px;padding-inline:16px}
+h1{font-size:clamp(22px,3vw,30px);margin:0 0 4px;font-weight:700;letter-spacing:-.01em;text-wrap:balance}
+.lead{color:var(--muted);margin:0 0 16px;max-width:75ch}
+sub,sup{font-size:.72em;line-height:0}
+.sp{font-weight:600}
+.sp.ha{color:var(--ha)} .sp.ac{color:var(--ac)} .sp.h{color:var(--h)} .sp.oh{color:var(--oh)} .sp.cl{color:var(--cl)} .sp.w{color:var(--fg);font-weight:500}
+
+button{font:inherit;font-weight:500;background:var(--surface);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:6px 11px;cursor:pointer;line-height:1.3}
+button:hover{border-color:var(--fg)}
+button:disabled{opacity:.45;cursor:default}
+button:disabled:hover{border-color:var(--line)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--oh);outline-offset:2px}
+button.primary{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+button.oh{border-color:var(--oh);color:var(--oh)} button.h{border-color:var(--h);color:var(--h)}
+select,input[type=range]{font:inherit;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:4px 6px}
+input[type=range]{padding:0;accent-color:var(--fg);border:none;background:transparent}
+
+.tour{background:var(--note);border-left:4px solid var(--note-line);border-radius:0 10px 10px 0;padding:12px 16px;margin-bottom:12px;display:grid;grid-template-columns:1fr auto;gap:10px 16px;align-items:center}
+.tour .cap{font-size:17px;line-height:1.5;min-height:1.5em}
+.tour .cap .step{font-family:var(--mono);font-size:12px;color:var(--muted);display:block;margin-bottom:2px}
+.tour .btns{display:flex;gap:8px;flex-wrap:wrap}
+
+.controls{display:flex;flex-wrap:wrap;gap:10px 22px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 16px;margin-bottom:16px;font-size:14px}
+.controls .grp{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.controls .lbl{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-right:4px}
+.controls .val{font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums}
+.controls label.chk{display:flex;gap:6px;align-items:center;cursor:pointer}
+
+.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-bottom:18px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;min-width:0;display:flex;flex-direction:column;gap:9px;transition:opacity .4s}
+.card.dim{opacity:.3}
+.card h2{margin:0;font-size:17px;font-weight:600;display:flex;gap:10px;align-items:baseline}
+.card h2 .k{font-size:22px;font-weight:700}
+.card .sys{color:var(--muted);font-size:13px;margin:-6px 0 0}
+.card[data-k=A] .k{color:var(--a)} .card[data-k=B] .k{color:var(--b)} .card[data-k=C] .k{color:var(--c)}
+.beaker{display:grid;grid-template-columns:1fr 44px;gap:8px;align-items:stretch}
+canvas{display:block;width:100%;height:auto;max-width:100%}
+.ph{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+.ph .big{font-family:var(--mono);font-size:28px;font-weight:500;font-variant-numeric:tabular-nums}
+.ph .d{font-family:var(--mono);font-size:15px;font-variant-numeric:tabular-nums;font-weight:500}
+.card[data-k=A] .d{color:var(--a)} .card[data-k=B] .d{color:var(--b)} .card[data-k=C] .d{color:var(--c)}
+.bars{display:grid;grid-template-columns:auto 1fr auto;gap:4px 8px;align-items:center;font-size:13px}
+.bars .track{height:9px;background:var(--soft);border-radius:4px;overflow:hidden}
+.bars .fill{height:100%;border-radius:4px;transition:width .25s}
+.bars .n{font-family:var(--mono);font-variant-numeric:tabular-nums;min-width:3ch;text-align:right}
+.meta{font-family:var(--mono);font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.rx{font-size:14px;background:var(--soft);border:1px solid var(--line);border-radius:7px;padding:7px 10px;min-height:2.6em;transition:background .5s,border-color .5s}
+.rx.hot{background:var(--hot);border-color:var(--note-line)}
+.rx .lbl{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);display:block}
+.rx .eq{font-size:15px}
+.cbtns{display:flex;gap:6px;flex-wrap:wrap}
+.cbtns button{padding:5px 9px;font-size:13px}
+
+.bottom{display:grid;grid-template-columns:3fr 2fr;gap:16px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;min-width:0}
+.panel h3{margin:0 0 8px;font-size:15px;font-weight:600}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--muted);margin-top:6px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+.legend b{display:inline-block;width:18px;height:3px;margin-right:6px;vertical-align:3px;border-radius:2px}
+.fazit p{margin:0 0 8px;font-size:14px}
+.fazit .f{font-family:var(--mono);font-size:13.5px;background:var(--soft);border:1px solid var(--line);border-radius:6px;padding:6px 8px;margin:4px 0 10px}
+.foot{color:var(--muted);font-size:12.5px;margin-top:14px}
+details summary{cursor:pointer;color:var(--muted);font-size:13px}
+
+@media (max-width:900px){ .cards{grid-template-columns:1fr} .bottom{grid-template-columns:1fr} .tour{grid-template-columns:1fr} }
+</style>
+
+<div class="wrap">
+  <h1>Pufferwirkung im Vergleich</h1>
+  <p class="lead">Ein Acetatpuffer, reine Essigsäure und verdünnte Salzsäure werden mit gleichen Stoffmengen Natronlauge bzw. Salzsäure versetzt. Die Simulation zeigt die ablaufenden Reaktionen auf Teilchenebene, den resultierenden pH-Wert und den zugehörigen pH-Verlauf. Maßstab: eine Kugel entspricht 0,0025 mol/L. Die Verdünnung durch die Zugabe wird vernachlässigt; Natrium-Ionen sind nicht dargestellt.</p>
+
+  <div class="tour" id="tour">
+    <div class="cap" id="cap"><span class="step" id="stepLbl">Schrittweise Erklärung</span><span id="capText">Die Erklärung behandelt die drei Lösungen nacheinander in 16 Schritten. Die jeweils besprochene Lösung wird hervorgehoben.</span></div>
+    <div class="btns">
+      <button id="tourStart" class="primary">Erklärung starten</button>
+      <button id="tourNext" hidden>Weiter</button>
+      <button id="tourStop" hidden>Beenden</button>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="grp"><span class="lbl">Alle Lösungen</span>
+      <button class="oh" data-all="OH" data-n="1">+1 OH<sup>−</sup></button>
+      <button class="oh" data-all="OH" data-n="8">+8 OH<sup>−</sup></button>
+      <button class="h" data-all="H" data-n="1">+1 H<sub>3</sub>O<sup>+</sup></button>
+      <button class="h" data-all="H" data-n="8">+8 H<sub>3</sub>O<sup>+</sup></button>
+      <button id="resetAll">Alle zurücksetzen</button>
+    </div>
+    <div class="grp">
+      <label class="chk"><input type="checkbox" id="slow"> Zeitlupe</label>
+    </div>
+    <div class="grp"><span class="lbl">Säure-Base-Paar</span>
+      <select id="acid">
+        <option value="4.76" selected>Essigsäure / Acetat (pKS 4,76)</option>
+        <option value="3.75">Ameisensäure / Formiat (3,75)</option>
+        <option value="7.21">H₂PO₄⁻ / HPO₄²⁻ (7,21)</option>
+        <option value="9.25">NH₄⁺ / NH₃ (9,25)</option>
+      </select>
+    </div>
+    <div class="grp"><span class="lbl">Stoffmengenanteil A⁻ in A</span>
+      <input type="range" id="xfrac" min="0" max="1" step="0.05" value="0.5" style="width:140px">
+      <span class="val" id="xVal">x(A⁻) = 0,50</span>
+    </div>
+  </div>
+
+  <div class="cards" id="cards"></div>
+
+  <div class="bottom">
+    <div class="panel">
+      <h3>pH-Wert in Abhängigkeit von der Zugabe</h3>
+      <canvas id="chart" width="760" height="300"></canvas>
+      <div class="legend">
+        <span><b style="background:var(--a)"></b>A Puffer</span>
+        <span><b style="background:var(--b)"></b>B schwache Säure</span>
+        <span><b style="background:var(--c)"></b>C Salzsäure</span>
+      </div>
+      <div class="legend">
+        <span><i style="background:var(--ha)"></i>HA</span><span><i style="background:var(--ac)"></i>A<sup>−</sup></span>
+        <span><i style="background:var(--h)"></i>H<sub>3</sub>O<sup>+</sup></span><span><i style="background:var(--oh)"></i>OH<sup>−</sup></span>
+        <span><i style="background:var(--cl)"></i>Cl<sup>−</sup></span>
+      </div>
+    </div>
+    <div class="panel fazit">
+      <h3>Zusammenfassung</h3>
+      <div class="f">pH = pK<sub>S</sub> + lg([A<sup>−</sup>] / [HA])</div>
+      <p><strong>A</strong> enthält HA und A<sup>−</sup> in vergleichbaren Konzentrationen. Zugesetzte Base reagiert mit HA, zugesetzte Säure mit A<sup>−</sup>. Das Verhältnis [A<sup>−</sup>]/[HA] und damit der pH-Wert ändern sich nur geringfügig.</p>
+      <p><strong>B</strong> enthält nur HA. Zugesetzte Base reagiert wie in A, das Verhältnis [A<sup>−</sup>]/[HA] beginnt jedoch bei nahezu null. Wegen des Logarithmus in der Henderson-Hasselbalch-Gleichung führt bereits ein geringer Umsatz zu einer deutlichen pH-Änderung. Zugesetzte Säure findet keinen Reaktionspartner.</p>
+      <p><strong>C</strong> enthält weder eine schwache Säure noch eine schwache Base. Nach Neutralisation der geringen H<sub>3</sub>O<sup>+</sup>-Stoffmenge bestimmt die zugesetzte Base den pH-Wert unmittelbar.</p>
+      <div class="f">β = 2,303 · (c · K<sub>S</sub>[H<sub>3</sub>O<sup>+</sup>] / (K<sub>S</sub> + [H<sub>3</sub>O<sup>+</sup>])² + [H<sub>3</sub>O<sup>+</sup>] + [OH<sup>−</sup>])</div>
+      <p>Die Pufferkapazität β (Stoffmenge starker Base je Liter und pH-Einheit) wird für jede Lösung angezeigt. Sie ist maximal bei [A<sup>−</sup>] = [HA], also bei pH = pK<sub>S</sub>, und nähert sich für x → 0 dem Wert einer ungepufferten Lösung. Über den Stoffmengenanteil lässt sich Lösung A kontinuierlich in Lösung B überführen.</p>
+    </div>
+  </div>
+  <p class="foot">pH-Werte aus der vollständigen Ladungsbilanz [H<sub>3</sub>O<sup>+</sup>] + [Na<sup>+</sup>] = [OH<sup>−</sup>] + [Cl<sup>−</sup>] + [A<sup>−</sup>] mit K<sub>W</sub> = 10<sup>−14</sup> (25 °C). Der pH-Wert wird in dem Moment aktualisiert, in dem eine Kugel reagiert oder in Lösung geht. Die Gleichungen in der Zusammenfassung sind die üblichen Näherungen für verdünnte Lösungen.</p>
+</div>
+
+<script>
+(() => {
+'use strict';
+// ---------- Chemie
+const Kw = 1e-14, UNIT = 0.0025, N8 = 8;
+let pKa = 4.76, Ka = 10 ** -pKa, xA = 0.5;
+const ACIDS = { '4.76': ['Essigsäure', 'Acetat'], '3.75': ['Ameisensäure', 'Formiat'], '7.21': ['Dihydrogenphosphat', 'Hydrogenphosphat'], '9.25': ['Ammonium', 'Ammoniak'] };
+const de = (v, nd = 2) => v.toFixed(nd).replace('.', ',');
+const sgn = (v, nd = 2) => (v < 0 ? '−' : '+') + de(Math.abs(v), nd);
+function solvePH(cAc, cSa, cSb) {
+  const f = p => { const h = 10 ** -p; return h + cSb - Kw / h - cSa - cAc * Ka / (Ka + h); };
+  let lo = -1, hi = 15; for (let i = 0; i < 60; i++) { const m = (lo + hi) / 2; if (f(m) > 0) lo = m; else hi = m; } return (lo + hi) / 2;
+}
+const SYS = {
+  A: { name: 'Puffer', cAc: 1, cSa: 0, cSb: () => xA, init: () => ({ HA: Math.round(400 * (1 - xA)), A: Math.round(400 * xA) }),
+       sub: () => `c(HA) = ${de(1 - xA)} mol/L, c(A⁻) = ${de(xA)} mol/L · ${ACIDS[pKa.toFixed(2)][0]}/${ACIDS[pKa.toFixed(2)][1]}` },
+  B: { name: 'Schwache Säure', cAc: 1, cSa: 0, cSb: () => 0, init: () => ({ HA: 400 }),
+       sub: () => `c(HA) = 1,00 mol/L · reine ${ACIDS[pKa.toFixed(2)][0]}` },
+  C: { name: 'Starke Säure', cAc: 0, cSa: 0.005, cSb: () => 0, init: () => ({ H: 2, Cl: 2 }), sub: () => 'c(HCl) = 0,005 mol/L · vollständig protolysiert' },
+};
+const pHat = (k, d) => { const s = SYS[k]; return solvePH(s.cAc, s.cSa + Math.max(-d, 0), s.cSb() + Math.max(d, 0)); };
+const betaAt = (k, d) => { const s = SYS[k], h = 10 ** -pHat(k, d); return 2.303 * (s.cAc * Ka * h / (Ka + h) ** 2 + h + Kw / h); };
+
+// ---------- Markup
+const SP = { HA: '<span class="sp ha">HA</span>', A: '<span class="sp ac">A<sup>−</sup></span>', H: '<span class="sp h">H<sub>3</sub>O<sup>+</sup></span>',
+             OH: '<span class="sp oh">OH<sup>−</sup></span>', Cl: '<span class="sp cl">Cl<sup>−</sup></span>', H2O: '<span class="sp w">H<sub>2</sub>O</span>', pKS: 'p<i>K</i><sub>S</sub>' };
+const mk = s => s.replace(/\{(\w+)\}/g, (m, k) => SP[k] || m);
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const COLV = { HA: '--ha', A: '--ac', H: '--h', OH: '--oh', Cl: '--cl' };
+
+// ---------- Teilchen
+const BW = 320, BH = 280, GLASS_Y = 30, LIQ_Y = 52, PIP_X = BW / 2;
+function mkRng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
+const rnd = mkRng(2024);
+
+class Beaker {
+  constructor(k) { this.k = k; this.liq = { x0: 9, x1: BW - 9, y0: LIQ_Y + 7, y1: BH - 9 }; this.hardReset(); }
+  hardReset() {
+    const r = mkRng(7 + this.k.charCodeAt(0)); this.base = [];
+    for (const [sp, n] of Object.entries(SYS[this.k].init())) for (let i = 0; i < n; i++)
+      this.base.push({ sp, x: this.liq.x0 + r() * (this.liq.x1 - this.liq.x0), y: this.liq.y0 + r() * (this.liq.y1 - this.liq.y0), vx: 0, vy: 0 });
+    this.softReset();
+  }
+  softReset() {
+    this.p = this.base.map(b => ({ sp: b.sp, x: b.x, y: b.y, vx: 0, vy: 0, st: 'free', tg: -1 }));
+    this.added = 0; this.flash = []; this.pending = []; this.lastRx = ''; this.hot = 0; this.history = [[0, pHat(this.k, 0)]];
+  }
+  enqueue(sp, n, spacing) { let t = this.pending.length ? this.pending[this.pending.length - 1].at + spacing : 0.05; for (let i = 0; i < n; i++, t += spacing) this.pending.push({ at: t, sp }); }
+  busy() { return this.pending.length > 0 || this.p.some(q => q.st === 'falling' || q.st === 'seeking'); }
+  add(sp) { this.p.push({ sp, x: PIP_X + (rnd() - 0.5) * 6, y: 14, vx: 0, vy: 2.6, st: 'falling', tg: -1 }); }
+  partners(sp) {
+    for (const want of (sp === 'OH' ? ['H', 'HA'] : ['OH', 'A'])) { const ids = []; this.p.forEach((q, i) => { if (q.sp === want && q.st === 'free') ids.push(i); }); if (ids.length) return ids; }
+    return [];
+  }
+  record(delta) { this.added += delta; this.history.push([this.added, pHat(this.k, this.added)]); }
+  step(dt) {           // dt in Frames (60 fps-Äquivalent)
+    for (const q of this.pending) q.at -= dt / 60;
+    while (this.pending.length && this.pending[0].at <= 0) this.add(this.pending.shift().sp);
+    const { x0, x1, y0, y1 } = this.liq, rm = new Set();
+    for (let i = 0; i < this.p.length; i++) {
+      const q = this.p[i];
+      if (q.st === 'free') {
+        q.vx = q.vx * 0.9 + (rnd() - 0.5) * 0.45; q.vy = q.vy * 0.9 + (rnd() - 0.5) * 0.45; q.x += q.vx * dt; q.y += q.vy * dt;
+      } else if (q.st === 'falling') {
+        q.y += q.vy * dt;
+        if (q.y > LIQ_Y + 8) {
+          const c = this.partners(q.sp);
+          if (c.length) { let best = -1, bd = 1e9; for (const j of c) { const d = (this.p[j].x - q.x) ** 2 + (this.p[j].y - q.y) ** 2; if (d < bd) { bd = d; best = j; } }
+            q.tg = best; q.st = 'seeking'; this.p[best].st = 'targeted'; }
+          else { q.st = 'free'; q.vy = 0; this.record(q.sp === 'OH' ? UNIT : -UNIT); this.lastRx = q.sp === 'OH' ? '{OH} findet keinen Reaktionspartner und bleibt in Lösung' : '{H} findet keinen Reaktionspartner und bleibt in Lösung'; this.hot = 40; }
+        }
+      } else if (q.st === 'seeking') {
+        const t = this.p[q.tg], dx = t.x - q.x, dy = t.y - q.y, d = Math.hypot(dx, dy);
+        if (d < 6) {
+          const a = q.sp, b = t.sp;
+          if (a === 'OH' && b === 'HA') { t.sp = 'A'; this.lastRx = '{HA} + {OH} → {A} + {H2O}'; }
+          else if (a === 'H' && b === 'A') { t.sp = 'HA'; this.lastRx = '{A} + {H} → {HA} + {H2O}'; }
+          else { rm.add(q.tg); this.lastRx = '{H} + {OH} → 2 {H2O}'; }
+          t.st = 'free'; rm.add(i); this.flash.push({ x: t.x, y: t.y, age: 0 }); this.hot = 40;
+          this.record(a === 'OH' ? UNIT : -UNIT);
+        } else { q.x += dx / d * 2.4 * dt; q.y += dy / d * 2.4 * dt; }
+      }
+      if (q.st === 'free' || q.st === 'targeted') {
+        if (q.x < x0) { q.x = x0; q.vx = Math.abs(q.vx); } if (q.x > x1) { q.x = x1; q.vx = -Math.abs(q.vx); }
+        if (q.y < y0) { q.y = y0; q.vy = Math.abs(q.vy); } if (q.y > y1) { q.y = y1; q.vy = -Math.abs(q.vy); }
+      }
+    }
+    if (rm.size) { const keep = this.p.filter((_, i) => !rm.has(i)); const map = new Map(); this.p.forEach((q, i) => { if (!rm.has(i)) map.set(i, keep.indexOf(q)); });
+      for (const q of keep) if (q.st === 'seeking') q.tg = map.get(q.tg); this.p = keep; }
+    this.flash = this.flash.filter(f => (f.age += dt) < 40); this.hot = Math.max(0, this.hot - dt);
+  }
+  counts() { const c = { HA: 0, A: 0, H: 0, OH: 0, Cl: 0 }; for (const q of this.p) if (q.st !== 'falling' && q.st !== 'seeking') c[q.sp]++; return c; }
+}
+
+// ---------- DOM
+const cards = document.getElementById('cards'), BK = {}, UI = {};
+const BARS = { A: ['HA', 'A'], B: ['HA', 'A'], C: ['H', 'OH'] };
+for (const k of 'ABC') {
+  const el = document.createElement('div'); el.className = 'card'; el.dataset.k = k;
+  el.innerHTML = `<h2><span class="k">${k}</span><span id="name${k}"></span></h2><p class="sys" id="sub${k}"></p>
+    <div class="beaker"><canvas id="bk${k}" aria-label="Teilchenbild ${k}"></canvas><canvas id="g${k}" aria-label="pH-Skala ${k}"></canvas></div>
+    <div class="ph"><span class="big" id="ph${k}"></span><span class="d" id="d${k}"></span></div>
+    <div class="bars">${BARS[k].map(sp => `<span>${SP[sp]}</span><div class="track"><div class="fill" id="f${k}${sp}" style="background:var(${COLV[sp]})"></div></div><span class="n" id="n${k}${sp}"></span>`).join('')}</div>
+    <div class="meta"><span id="r${k}"></span><span id="b${k}"></span></div>
+    <div class="rx" id="rx${k}"><span class="lbl">Letzte Reaktion</span><span class="eq" id="eq${k}">–</span></div>
+    <div class="cbtns"><button class="oh" data-k="${k}" data-sp="OH" data-n="1">+1 OH<sup>−</sup></button><button class="oh" data-k="${k}" data-sp="OH" data-n="8">+8</button>
+      <button class="h" data-k="${k}" data-sp="H" data-n="1">+1 H<sub>3</sub>O<sup>+</sup></button><button class="h" data-k="${k}" data-sp="H" data-n="8">+8</button><button data-reset="${k}">↺</button></div>`;
+  cards.appendChild(el); BK[k] = new Beaker(k);
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const bc = el.querySelector('#bk' + k), gc = el.querySelector('#g' + k);
+  bc.width = BW * dpr; bc.height = BH * dpr; gc.width = 44 * dpr; gc.height = BH * dpr;
+  UI[k] = { el, bk: bc.getContext('2d'), g: gc.getContext('2d'), dpr, name: el.querySelector('#name' + k), sub: el.querySelector('#sub' + k),
+            ph: el.querySelector('#ph' + k), d: el.querySelector('#d' + k), r: el.querySelector('#r' + k), b: el.querySelector('#b' + k),
+            rx: el.querySelector('#rx' + k), eq: el.querySelector('#eq' + k) };
+  UI[k].bk.scale(dpr, dpr); UI[k].g.scale(dpr, dpr);
+}
+const chart = document.getElementById('chart').getContext('2d');
+const PH_STOPS = [[0, '#b91c1c'], [.14, '#ea580c'], [.28, '#f59e0b'], [.43, '#84cc16'], [.5, '#16a34a'], [.64, '#0d9488'], [.78, '#2563eb'], [.9, '#6d28d9'], [1, '#4c1d95']];
+
+function drawGauge(k, pH, pH0) {
+  const g = UI[k].g, top = 10, h = BH - 22, x0 = 6, w = 14;
+  g.clearRect(0, 0, 44, BH);
+  const grad = g.createLinearGradient(0, top + h, 0, top); PH_STOPS.forEach(([p, c]) => grad.addColorStop(p, c));
+  g.fillStyle = grad; g.fillRect(x0, top, w, h); g.strokeStyle = css('--glass'); g.lineWidth = 1; g.strokeRect(x0 + .5, top + .5, w, h);
+  g.fillStyle = css('--muted'); g.font = '10px ' + css('--mono'); g.textBaseline = 'middle';
+  for (let v = 0; v <= 14; v += 2) { const y = top + h - h * v / 14; g.fillRect(x0 + w, y - .5, 3, 1); g.fillText(v, x0 + w + 5, y); }
+  const Y = p => top + h - h * Math.min(Math.max(p, 0), 14) / 14;
+  g.strokeStyle = css('--fg'); g.setLineDash([2, 2]); g.beginPath(); g.moveTo(x0 - 4, Y(pH0)); g.lineTo(x0 + w, Y(pH0)); g.stroke(); g.setLineDash([]);
+  const y = Y(pH); g.fillStyle = css('--fg'); g.beginPath(); g.moveTo(x0 - 1, y); g.lineTo(x0 - 7, y - 5); g.lineTo(x0 - 7, y + 5); g.closePath(); g.fill();
+}
+function drawBeaker(k) {
+  const c = UI[k].bk, b = BK[k];
+  c.clearRect(0, 0, BW, BH);
+  // Pipette
+  c.fillStyle = css('--soft'); c.strokeStyle = css('--glass'); c.lineWidth = 1.2;
+  c.beginPath(); c.moveTo(PIP_X - 9, 2); c.lineTo(PIP_X + 9, 2); c.lineTo(PIP_X + 3, 20); c.lineTo(PIP_X - 3, 20); c.closePath(); c.fill(); c.stroke();
+  // Glas
+  c.fillStyle = css('--liquid'); c.fillRect(3, LIQ_Y, BW - 6, BH - LIQ_Y - 3);
+  c.strokeStyle = css('--glass'); c.lineWidth = 2.5; c.beginPath(); c.moveTo(3, GLASS_Y); c.lineTo(3, BH - 3); c.lineTo(BW - 3, BH - 3); c.lineTo(BW - 3, GLASS_Y); c.stroke();
+  const dot = (x, y, col, r = 4) => { c.beginPath(); c.arc(x, y, r, 0, 7); c.fillStyle = css(col); c.fill(); c.strokeStyle = css('--surface'); c.lineWidth = 1; c.stroke(); };
+  for (const q of b.p) dot(q.x, q.y, COLV[q.sp], q.st === 'falling' || q.st === 'seeking' ? 5 : 4);
+  // H2O-Blitz
+  for (const f of b.flash) {
+    const a = 1 - f.age / 40; c.strokeStyle = css('--flash'); c.globalAlpha = a; c.lineWidth = 1.6;
+    c.beginPath(); c.arc(f.x, f.y, 6 + f.age * 0.45, 0, 7); c.stroke();
+    c.fillStyle = css('--flash'); c.font = '600 11px ' + css('--font'); c.textBaseline = 'bottom'; c.fillText('H₂O', f.x + 7, f.y - 4 - f.age * 0.3); c.globalAlpha = 1;
+  }
+}
+let range = 0.02;
+function drawChart(focus) {
+  const W = 760, H = 300, L = 44, R = 12, T = 12, B = 44, c = chart;
+  const maxAdd = Math.max(0.02, ...Object.values(BK).map(b => Math.abs(b.added)));
+  range = Math.ceil(maxAdd / 0.01 - 1e-9) * 0.01;
+  c.clearRect(0, 0, W, H);
+  const X = v => L + (v + range) / (2 * range) * (W - L - R), Y = p => T + (14 - p) / 14 * (H - T - B);
+  c.strokeStyle = css('--line'); c.lineWidth = 1; c.fillStyle = css('--muted'); c.font = '11px ' + css('--mono'); c.textAlign = 'right'; c.textBaseline = 'middle';
+  for (let p = 0; p <= 14; p += 2) { c.beginPath(); c.moveTo(L, Y(p)); c.lineTo(W - R, Y(p)); c.stroke(); if (p) c.fillText(p, L - 6, Y(p)); }
+  c.textAlign = 'center'; c.textBaseline = 'top';
+  const stepx = range / 2;
+  for (let v = -range; v <= range + 1e-9; v += stepx) { c.beginPath(); c.moveTo(X(v), T); c.lineTo(X(v), H - B); c.stroke(); c.fillText(Math.abs(v) < 1e-9 ? '0' : de(Math.abs(v), 3), X(v), H - B + 6); }
+  c.strokeStyle = css('--muted'); c.beginPath(); c.moveTo(X(0), T); c.lineTo(X(0), H - B); c.stroke();
+  c.font = '11px ' + css('--font'); c.fillText('← Zugabe H₃O⁺ / mol L⁻¹', (L + X(0)) / 2, H - 18); c.fillText('Zugabe OH⁻ / mol L⁻¹ →', (X(0) + W - R) / 2, H - 18);
+  c.save(); c.translate(12, (T + H - B) / 2); c.rotate(-Math.PI / 2); c.textBaseline = 'middle'; c.fillText('pH', 0, 0); c.restore();
+  for (const k of 'ABC') {
+    const col = css('--' + k.toLowerCase()), dim = focus && focus !== 'all' && focus !== k;
+    c.globalAlpha = dim ? 0.25 : 1; c.strokeStyle = col; c.lineWidth = 2.5; c.beginPath();
+    for (let i = 0; i <= 240; i++) { const v = -range + i * 2 * range / 240, y = Y(pHat(k, v)); i ? c.lineTo(X(v), y) : c.moveTo(X(v), y); }
+    c.stroke();
+    // bisheriger Weg als Punkte
+    c.fillStyle = col; for (const [d, p] of BK[k].history) { c.beginPath(); c.arc(X(d), Y(p), 2.2, 0, 7); c.fill(); }
+    c.beginPath(); c.arc(X(BK[k].added), Y(pHat(k, BK[k].added)), 5.5, 0, 7); c.fill(); c.strokeStyle = css('--surface'); c.lineWidth = 2; c.stroke();
+    c.globalAlpha = 1;
+  }
+}
+
+function render() {
+  for (const k of 'ABC') {
+    const b = BK[k], u = UI[k], pH = pHat(k, b.added), pH0 = pHat(k, 0), c = b.counts();
+    u.name.textContent = SYS[k].name; u.sub.textContent = SYS[k].sub();
+    u.ph.textContent = 'pH ' + de(pH); u.d.textContent = b.added === 0 ? '' : 'ΔpH = ' + sgn(pH - pH0, 3);
+    const max = k === 'C' ? 10 : 400;
+    for (const sp of BARS[k]) { document.getElementById('f' + k + sp).style.width = (100 * Math.min(c[sp], max) / max) + '%'; document.getElementById('n' + k + sp).textContent = c[sp]; }
+    const nK = Math.round(Math.abs(b.added) / UNIT), zug = nK ? `Zugabe ${nK} Kugel${nK > 1 ? 'n' : ''} ${b.added > 0 ? 'OH⁻' : 'H₃O⁺'} (${de(Math.abs(b.added), 4)} mol/L)` : 'keine Zugabe';
+    u.r.innerHTML = (k === 'C' ? '' : `[A⁻]/[HA] = ${c.HA ? de(c.A / c.HA) : '∞'} · `) + zug;
+    u.b.textContent = 'β = ' + de(betaAt(k, b.added), 3) + ' mol/L';
+    u.eq.innerHTML = b.lastRx ? mk(b.lastRx) : '–'; u.rx.classList.toggle('hot', b.hot > 0);
+    drawBeaker(k); drawGauge(k, pH, pH0);
+  }
+  drawChart(tour.focus);
+}
+
+// ---------- Zugabe & Steuerung
+const slowEl = document.getElementById('slow');
+const speed = () => slowEl.checked ? 0.3 : 1;
+function dose(k, sp, n) { BK[k].enqueue(sp, n, n > 1 ? 0.5 : 0); }
+document.querySelectorAll('[data-sp]').forEach(btn => btn.onclick = () => dose(btn.dataset.k, btn.dataset.sp, +btn.dataset.n));
+document.querySelectorAll('[data-all]').forEach(btn => btn.onclick = () => { for (const k of 'ABC') dose(k, btn.dataset.all, +btn.dataset.n); });
+document.querySelectorAll('[data-reset]').forEach(btn => btn.onclick = () => BK[btn.dataset.reset].softReset());
+document.getElementById('resetAll').onclick = () => { for (const k of 'ABC') BK[k].softReset(); };
+const xEl = document.getElementById('xfrac'), acidEl = document.getElementById('acid');
+xEl.oninput = () => { xA = +xEl.value; document.getElementById('xVal').textContent = 'x(A⁻) = ' + de(xA); BK.A.hardReset(); };
+acidEl.onchange = () => { pKa = +acidEl.value; Ka = 10 ** -pKa; for (const k of 'ABC') BK[k].softReset(); };
+
+// ---------- Geführte Tour
+const dp = (k, d) => sgn(pHat(k, d) - pHat(k, 0), 3);
+const STEPS = [
+  { f: 'A', cap: () => 'Lösung A enthält 200 Kugeln {HA} (Essigsäure) und 200 Kugeln {A} (Acetat), also ein konjugiertes Säure-Base-Paar in gleichen Stoffmengen. pH 4,76.', act: () => {} },
+  { f: 'A', cap: () => 'Zugabe einer Kugel {OH}. Sie reagiert mit {HA}: {HA} + {OH} → {A} + {H2O}. Die Stoffmenge an {HA} nimmt um eine Kugel ab, die an {A} um eine Kugel zu.', act: () => dose('A', 'OH', 1) },
+  { f: 'A', cap: () => 'Zwei weitere Kugeln {OH}. Das Verhältnis {A} : {HA} ändert sich von 200 : 200 auf 203 : 197.', act: () => BK.A.enqueue('OH', 2, 1.4) },
+  { f: 'A', cap: () => `Die restlichen fünf Kugeln. Alle 8 {OH} (0,02 mol/L) werden von {HA} umgesetzt; freies {OH} tritt nicht auf. ΔpH = ${dp('A', 0.02)}.`, act: () => BK.A.enqueue('OH', 5, 0.45) },
+  { f: 'A', cap: () => `Ausgangszustand wiederhergestellt, Zugabe von 8 Kugeln {H}. Jetzt reagiert {A}: {A} + {H} → {HA} + {H2O}. ΔpH = ${dp('A', -0.02)}.`, act: () => { BK.A.softReset(); BK.A.enqueue('H', 8, 0.5); } },
+  { f: 'B', cap: () => 'Lösung B enthält 400 Kugeln {HA}: Essigsäure mit c = 1 mol/L ohne zugesetztes Acetat. Der Protolysegrad beträgt etwa 0,4 %; {A} ist im Teilchenbild nicht sichtbar. pH 2,38.', act: () => {} },
+  { f: 'B', cap: () => 'Zugabe einer Kugel {OH}. Die Reaktion ist dieselbe wie in A: {HA} + {OH} → {A} + {H2O}.', act: () => dose('B', 'OH', 1) },
+  { f: 'B', cap: () => 'Zwei weitere Kugeln. Das Verhältnis {A} : {HA} steigt von 0 : 400 auf 3 : 397. Der Absolutbetrag ist gering, der relative Zuwachs nicht.', act: () => BK.B.enqueue('OH', 2, 1.4) },
+  { f: 'B', cap: () => `Nach 8 Kugeln: ΔpH = ${dp('B', 0.02)}, etwa das 20-Fache von Lösung A. Das Verhältnis geht logarithmisch in den pH-Wert ein; nahe null wirken sich kleine Änderungen stark aus.`, act: () => BK.B.enqueue('OH', 5, 0.45) },
+  { f: 'B', cap: () => `Ausgangszustand, Zugabe von 8 Kugeln {H}. Es ist kein {A} vorhanden, das {H} aufnehmen könnte; die zugesetzte Säure bleibt vollständig in Lösung. ΔpH = ${dp('B', -0.02)}.`, act: () => { BK.B.softReset(); BK.B.enqueue('H', 8, 0.5); } },
+  { f: 'C', cap: () => 'Lösung C enthält 2 Kugeln {H} und 2 Kugeln {Cl}: Salzsäure mit c = 0,005 mol/L. Der pH-Wert (2,30) entspricht etwa dem von B, die Gesamtstoffmenge an Säure ist jedoch 200-mal kleiner.', act: () => {} },
+  { f: 'C', cap: () => 'Zugabe von zwei Kugeln {OH}: {H} + {OH} → 2 {H2O}. Damit ist die vorhandene Säure vollständig neutralisiert.', act: () => BK.C.enqueue('OH', 2, 1.4) },
+  { f: 'C', cap: () => `Die weiteren sechs Kugeln finden keinen Reaktionspartner; {Cl} ist als konjugierte Base einer starken Säure praktisch nicht basisch. {OH} bleibt in Lösung. ΔpH = ${dp('C', 0.02)}.`, act: () => BK.C.enqueue('OH', 6, 0.45) },
+  { f: 'C', cap: () => `Ausgangszustand, Zugabe von 8 Kugeln {H}. Ohne Reaktionspartner bleibt die Säure in Lösung. ΔpH = ${dp('C', -0.02)}.`, act: () => { BK.C.softReset(); BK.C.enqueue('H', 8, 0.5); } },
+  { f: 'all', cap: () => 'Alle drei Lösungen gleichzeitig, jeweils 8 Kugeln {OH}. Das Diagramm zeigt die zugehörigen Punkte auf den drei pH-Verläufen.', act: () => { for (const k of 'ABC') { BK[k].softReset(); BK[k].enqueue('OH', 8, 0.5); } } },
+  { f: 'all', cap: () => 'Pufferwirkung setzt voraus, dass Säure und konjugierte Base beide in ausreichender Konzentration vorliegen. pH = {pKS} + lg([{A}]/[{HA}]); die Pufferkapazität β ist maximal bei [{A}] = [{HA}]. Über die Einstellungen lassen sich andere Säure-Base-Paare und Zusammensetzungen untersuchen.', act: () => {} },
+];
+const tour = { i: -1, focus: null };
+const capText = document.getElementById('capText'), stepLbl = document.getElementById('stepLbl');
+const bStart = document.getElementById('tourStart'), bNext = document.getElementById('tourNext'), bStop = document.getElementById('tourStop');
+function setFocus(f) { tour.focus = f; for (const k of 'ABC') UI[k].el.classList.toggle('dim', !!f && f !== 'all' && f !== k); }
+function showStep(i) {
+  tour.i = i; const s = STEPS[i];
+  stepLbl.textContent = `Schritt ${i + 1} von ${STEPS.length}`; capText.innerHTML = mk(s.cap());
+  setFocus(s.f); s.act();
+  bNext.textContent = i === STEPS.length - 1 ? 'Beenden' : 'Weiter';
+  if (s.f !== 'all') UI[s.f].el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+function stopTour() { tour.i = -1; setFocus(null); stepLbl.textContent = 'Schrittweise Erklärung'; capText.innerHTML = 'Die Erklärung wurde beendet. Alle Bedienelemente sind wieder freigegeben.';
+  bStart.hidden = false; bNext.hidden = true; bStop.hidden = true; }
+bStart.onclick = () => { acidEl.value = '4.76'; acidEl.onchange(); xEl.value = 0.5; xEl.oninput(); for (const k of 'ABC') BK[k].softReset();
+  bStart.hidden = true; bNext.hidden = false; bStop.hidden = false; showStep(0); };
+bNext.onclick = () => { if (tour.i >= STEPS.length - 1) stopTour(); else showStep(tour.i + 1); };
+bStop.onclick = stopTour;
+
+// ---------- Schleife
+let last = performance.now();
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+function loop(now) {
+  const dt = Math.min((now - last) / 1000 * 60, 3) * speed(); last = now;
+  for (const k of 'ABC') BK[k].step(reduced ? dt * 2 : dt);
+  bNext.disabled = tour.i >= 0 && Object.values(BK).some(b => b.busy());
+  render(); requestAnimationFrame(loop);
+}
+render(); requestAnimationFrame(loop);
+})();
+</script>
+
+</body></html>
